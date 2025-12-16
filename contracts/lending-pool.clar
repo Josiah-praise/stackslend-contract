@@ -111,13 +111,10 @@
     (unwrap! (stx-transfer? amount tx-sender .stackslend-v1) (err u1))
 
     ;; Record deposit + yield index snapshot
-    (map-set deposits
-      { user: tx-sender }
-      {
-        amount: (+ deposited-stx amount),
-        yield-index: (var-get cumulative-yield-bips)
-      }
-    )
+    (map-set deposits { user: tx-sender } {
+      amount: (+ deposited-stx amount),
+      yield-index: (var-get cumulative-yield-bips),
+    })
 
     ;; Update total deposits
     (var-set total-stx-deposits (+ (var-get total-stx-deposits) amount))
@@ -128,16 +125,18 @@
 
 (define-public (withdraw-stx (amount uint))
   (let (
-      (deposit (unwrap! (map-get? deposits { user: tx-sender }) ERR_INVALID_WITHDRAW_AMOUNT))
+      (deposit (unwrap! (map-get? deposits { user: tx-sender })
+        ERR_INVALID_WITHDRAW_AMOUNT
+      ))
       (deposited-stx (get amount deposit))
       (yield-index (get yield-index deposit))
     )
     ;; Validate withdrawal amount doesn't exceed deposited amount
     (asserts! (>= deposited-stx amount) ERR_INVALID_WITHDRAW_AMOUNT)
-    
+
     ;; Accrue interest before withdrawal
     (unwrap-panic (accrue-interest))
-    
+
     ;; Calculate pending yield and new amount
     (let (
         (pending-yield (unwrap-panic (get-pending-yield tx-sender)))
@@ -148,23 +147,20 @@
         ;; Full withdrawal - delete entry
         (map-delete deposits { user: tx-sender })
         ;; Partial withdrawal - update entry
-        (map-set deposits
-          { user: tx-sender }
-          {
-            amount: new-amount,
-            yield-index: (var-get cumulative-yield-bips)
-          }
-        )
+        (map-set deposits { user: tx-sender } {
+          amount: new-amount,
+          yield-index: (var-get cumulative-yield-bips),
+        })
       )
-      
+
       ;; Update total deposits
       (var-set total-stx-deposits (- (var-get total-stx-deposits) amount))
-      
+
       ;; Transfer STX + yield to user
       ;; Note: For now, skip the transfer in simnet - will work in production with proper as-contract
       ;; TODO: Fix this when as-contract becomes available in this Clarity version
       ;; (try! (stx-transfer? (+ amount pending-yield) .stackslend-v1 tx-sender))
-      
+
       (ok true)
     )
   )
@@ -174,7 +170,13 @@
     (collateral-amount uint)
     (amount-stx uint)
   )
-  (ok true)
+  (let (
+      ;; Load user's existing collateral and borrow information
+      (current-collateral (default-to u0 (get amount (map-get? collateral { user: tx-sender }))))
+      (current-borrow (default-to u0 (get amount (map-get? borrows { user: tx-sender }))))
+    )
+    (ok true)
+  )
 )
 
 (define-public (repay)
