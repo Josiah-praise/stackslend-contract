@@ -180,7 +180,14 @@
       (price (unwrap! (get-sbtc-stx-price) ERR_INVALID_ORACLE))
       ;; Calculate max borrowable amount (LTV ratio)
       (max-borrow (/ (* (* new-collateral price) LTV_PERCENTAGE) u100))
+      ;; Calculate user's current debt
+      (user-debt (unwrap! (get-debt tx-sender) (err u1)))
+      ;; Calculate new total debt
+      (new-debt (+ user-debt amount-stx))
     )
+    ;; Validate new debt doesn't exceed max borrow
+    (asserts! (<= new-debt max-borrow) ERR_EXCEEDED_MAX_BORROW)
+
     (ok true)
   )
 )
