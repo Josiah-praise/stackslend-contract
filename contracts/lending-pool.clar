@@ -197,6 +197,17 @@
       last-accrued: stacks-block-time,
     })
 
+    ;; Update total-stx-borrows variable
+    (var-set total-stx-borrows (+ (var-get total-stx-borrows) amount-stx))
+
+    ;; Update collateral map
+    (map-set collateral { user: tx-sender } { amount: new-collateral })
+
+    ;; Update total-sbtc-collateral variable
+    (var-set total-sbtc-collateral
+      (+ (var-get total-sbtc-collateral) collateral-amount)
+    )
+
     (ok true)
   )
 )
